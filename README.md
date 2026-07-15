@@ -1,210 +1,359 @@
-# 小智AI桌面机器人ESP32-S3N16R8-Emoji 
+<div align="center">
 
-## 硬件要求
+# YunShu-Link-Firmware
 
-- PCB开源地址：👉 [赛博太白 小智ai机器人deskemoji适配UNO外壳版】](https://oshwhub.com/jorellee/xiao-zhi-ai-ji-qi-ren-deskemoji-da-ban)
+### 云枢智能桌面机器人固件
+
+**让 AI 不只会回答，更能用表情与动作表达。**
+
+基于 ESP32-S3 打造的低成本、可自部署、具备情感表现力的智能桌面机器人。
+
+[![ESP32-S3](https://img.shields.io/badge/SoC-ESP32--S3-E7352C?logo=espressif&logoColor=white)](https://www.espressif.com/zh-hans/products/socs/esp32-s3)
+[![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.4%2B-E7352C?logo=espressif&logoColor=white)](https://github.com/espressif/esp-idf)
+[![Language](https://img.shields.io/badge/Language-C%2B%2B-00599C?logo=cplusplus&logoColor=white)](main/boards/esp32-s3n16r8-emoji)
+[![License](https://img.shields.io/badge/License-MIT-2ea44f)](LICENSE)
+[![Server](https://img.shields.io/badge/Backend-YunShu--Link--Server-2563EB)](https://github.com/KingYeon-Zoo/YunShu-Link)
+
+[产品介绍](#产品介绍) · [核心创新](#核心创新) · [系统架构](#系统架构) · [硬件组成](#硬件组成) · [快速开始](#快速开始) · [开发说明](#开发说明)
+
+</div>
+
+---
+
+## 产品介绍
+
+**YunShu-Link-Firmware（云枢智能桌面机器人固件）** 是我们围绕 ESP32-S3 自主设计与开发的具身语音交互终端。它将实时语音对话、OLED 动态表情和双轴舵机动作整合到同一套嵌入式系统中，使大模型的回答能够从“声音输出”进一步转化为可感知的情绪与肢体反馈。
+
+当云枢听到用户说话时，它会进入专注聆听状态；当 AI 思考或回复时，它会根据对话状态和回复内容呈现相应表情，并通过点头、摇头、转向等动作加强语义表达；在无人交互时，它还会自然眨眼和随机观察周围，让设备保持“在场感”。
+
+项目可与自研后端 [YunShu-Link-Server](https://github.com/KingYeon-Zoo/YunShu-Link) 组成完整链路：
+
+```text
+用户语音 → ESP32-S3 采集 → 云端 ASR → LLM 推理 → TTS 合成
+        ← 扬声器播放 + OLED 表情 + 双轴舵机动作 ← 情感与意图解析
+```
+
+### 我们想解决什么问题
+
+传统智能音箱主要依赖声音反馈，用户很难直观判断设备是在聆听、思考、回复还是待机。部分桌面机器人虽然具备屏幕或舵机，但表情、动作与对话内容往往相互独立，容易出现“嘴上在回答，身体却在做无关动作”的割裂体验。
+
+云枢把**对话状态、语义情感、视觉表情和机械动作**统一编排，让机器人能够以更自然、更具亲和力的方式参与交流。
+
+## 30 秒了解云枢
+
+| 能力 | 产品表现 | 技术实现 |
+|---|---|---|
+| 实时对话 | 支持实时语音问答与流式播放 | I2S 音频、Opus、WebSocket / MQTT + UDP |
+| 情感表达 | 回复内容驱动开心、悲伤、惊讶、思考等表情 | 情感映射与文本意图解析 |
+| 具身动作 | 点头、摇头、抬头、低头、左右观察、转圈 | 双 SG90 舵机 + LEDC PWM |
+| 状态感知 | 聆听、说话、空闲阶段呈现不同的行为 | 设备状态监控与行为调度 |
+| 自然待机 | 自动眨眼并随机执行轻量动作 | FreeRTOS 定时任务与动画队列 |
+| 双重交互 | 对话界面与沉浸式表情界面一键切换 | LVGL 多 Screen 管理 |
+| 开放连接 | 可接入自研服务端并扩展设备能力 | WebSocket / MQTT + UDP 与 MCP 生态 |
+| 远程维护 | 支持从自建服务获取固件更新 | OTA 升级机制 |
+
+## 核心创新
+
+### 1. 从“语音助手”到“情感具身终端”
+
+项目没有把 OLED 和舵机当作彼此独立的外设，而是设计了统一的情感动作映射层：
+
+- 接收大模型回复文本和框架情绪标记；
+- 识别肯定、否定、方向、休息、庆祝等语义；
+- 将语义转换为表情动画与头部动作；
+- 让声音、表情和动作共同完成一次回复。
+
+例如，表达肯定时可以配合点头，表达否定时可以配合摇头，思考时显示专注表情，结束对话后再平滑回到中性状态。
+
+### 2. 对话状态感知的行为调度
+
+机器人不是简单地循环播放动画。系统实时监听 `Idle / Listening / Speaking` 状态，并据此调整行为：
+
+```mermaid
+stateDiagram-v2
+    state "空闲：自然眨眼与随机微动作" as Idle
+    state "聆听：暂停随机动画并保持专注" as Listening
+    state "回复：解析情感并联动表情动作" as Speaking
+
+    [*] --> Idle
+    Idle --> Listening: 用户开始说话
+    Listening --> Speaking: AI 开始输出
+    Speaking --> Idle: 回复结束
+```
+
+对话开始后，随机动画会立即暂停并清空队列，避免无关动作干扰交流；对话结束后，系统恢复中性表情，并重新启用自然待机行为。
+
+### 3. 面向资源受限设备的并发动画系统
+
+ESP32-S3 需要同时处理网络、音频、屏幕刷新和舵机控制。为避免动画阻塞实时语音链路，我们将行为系统拆分为多个职责清晰的控制器：
+
+- `EmojiController`：管理 LVGL 表情、眨眼和动画队列；
+- `ServoController`：管理双轴角度、安全边界与平滑移动；
+- `EmotionResponseController`：完成文本、情绪与动作映射；
+- `StateMonitorTask`：感知设备状态并协调动画启停；
+- 独立 FreeRTOS 任务执行动画，降低对主交互流程的影响。
+
+### 4. 低成本硬件实现多模态表达
+
+云枢使用常见且易获得的模块完成完整交互：ESP32-S3、SSD1306 OLED、INMP441 数字麦克风、MAX98357A 音频功放和两只 SG90 舵机。无需高算力端侧主机，也能实现“听、说、看、动”四类反馈。
+
+舵机控制加入了活动范围限制与逐步插值：水平轴限制在中心点左右约 40°，垂直轴限制在中心点上下约 20°，在保持动作表现力的同时降低碰撞和堵转风险。
+
+### 5. 端云一体、可自部署的完整闭环
+
+固件不是孤立的硬件 Demo。它可以与 YunShu-Link-Server 配套运行，将设备接入、实时音频、ASR、LLM、TTS、记忆、工具调用和 OTA 更新串联起来。开发者既可以替换模型服务，也可以继续扩展新的情感、动作和外设。
+
+## 与常见方案的差异
+
+| 对比维度 | 常见语音终端 | YunShu-Link-Firmware |
+|---|---|---|
+| 交互反馈 | 以语音或文字为主 | 语音 + 表情 + 双轴动作协同表达 |
+| 动画逻辑 | 固定循环或手动触发 | 由对话状态和回复语义共同驱动 |
+| 实时性 | 动画可能阻塞其他任务 | FreeRTOS 任务与消息队列解耦 |
+| 设备成本 | 依赖高性能主机或复杂机械结构 | 基于通用 ESP32-S3 与低成本模块 |
+| 服务依赖 | 通常绑定单一云服务 | 支持自建 YunShu-Link-Server |
+| 可扩展性 | 表情和动作逻辑较封闭 | 控制器分层，可继续添加动作与传感器 |
+
+## 系统架构
+
+```mermaid
+flowchart LR
+    U["用户"] -->|语音| MIC["INMP441\nI2S 麦克风"]
+    MIC --> DEV["ESP32-S3\n音频与连接管理"]
+
+    subgraph CLOUD["YunShu-Link-Server"]
+        ASR["流式 ASR"] --> LLM["LLM / 意图 / 记忆"]
+        LLM --> TTS["流式 TTS"]
+        LLM --> TOOL["MCP / 工具调用"]
+    end
+
+    DEV -->|Opus 音频| ASR
+    TTS -->|流式音频| DEV
+    LLM -->|回复文本 / 情绪| DEV
+
+    DEV --> SPK["MAX98357A + 扬声器"]
+    DEV --> ERC["EmotionResponseController"]
+    ERC --> EC["EmojiController"]
+    ERC --> SC["ServoController"]
+    EC --> OLED["SSD1306 OLED\n表情与文字"]
+    SC --> SERVO["双 SG90 舵机\n水平 / 垂直动作"]
+```
+
+### 一次完整交互如何发生
+
+1. 用户按键或唤醒设备，ESP32-S3 通过 I2S 采集语音。
+2. 音频编码后发送至服务端，由 ASR 转写并交给大模型处理。
+3. 服务端返回流式语音，同时下发回复文本或情绪信息。
+4. 设备播放语音，并由情感控制器解析回复内容。
+5. 表情控制器和舵机控制器协同执行对应反馈。
+6. 回复结束后，设备回到中性状态，并在空闲阶段恢复自然动画。
 
 ## 功能特性
 
-### 1. 对话功能
-- 支持语音对话
-- 支持文字显示
-- 支持音量调节
-  - 支持按键调节：音量+/音量-按钮
-  - 支持语音调节：如"音量设为50"、"音量调到80"等命令
-  - 支持多种音量控制命令格式：
-    - "音量设为xx"
-    - "音量调到xx"
-    - "把音量设为xx"
-    - "将声音设置为xx"
-    - "音量增加"/"音量加大"
-    - "音量减小"/"音量降低"
-    - "静音"/"关闭声音"
-- 支持WiFi连接
-- 支持IoT设备控制
+### 语音与连接
 
-### 2. 表情模式
-- 长按BOOT按钮进入表情模式
-- 显示可爱的眨眼动画
-- 支持自动眨眼效果（随机单次眨眼或连续快速眨眼两次）
-- 支持多种表情动画：开心、伤心、愤怒、惊讶等
-- 支持舵机控制头部动作：点头、摇头、摆动等
-- 所有动画均采用专用任务处理，确保流畅自然
-- 再次长按BOOT按钮返回对话模式
+- 实时语音采集与播放；
+- Opus 音频编解码；
+- WebSocket 与 MQTT + UDP 通信；
+- Wi-Fi 配网与设备接入；
+- 支持接入 YunShu-Link-Server；
+- 支持 OTA 固件更新。
 
-### 表情动画优化
-- 开心表情：优化三角形位置、大小和角度，使表情更加自然
-- 悲伤表情：实现为开心表情的精确垂直翻转，确保完美对称
-- 点头动作：改进为多次上下点头，更符合自然表达
-- 眨眼动画：随机单次眨眼或连续快速眨眼两次，更加生动自然
-- 使用LVGL图形库实现高质量的表情动画效果
-- 通过精确计算三角形坐标，确保表情一致性
-- 优化旋转角度和旋转中心点，使三角形形状更加准确
-- 调整动画参数，使表情变化更加流畅自然
+### 表情系统
 
+- 支持自然眨眼、开心、悲伤、愤怒、惊讶、困惑、思考、睡眠、唤醒等表情；
+- 支持左右观察、哭泣、大笑、喜爱、亲吻、放松、自信等扩展动画；
+- 支持随机单次眨眼和连续快速眨眼；
+- 支持对话界面与全屏表情界面切换；
+- 动画通过队列串行调度，减少状态冲突。
 
-### 请关注main/boards目录下的esp32-s3n16r8-emoji，为咱们开发板代码。 如果想自行升级小智框架代码，只用将开发板目录复制到小智框架的boards下，修改main下的编译配置CMakeLists.txt和Kconfig.projbuild，将开发板加入到待选中，编译的时候选择咱们板子即可。
+### 动作系统
 
+- 双轴头部运动：左右、上下与自动回正；
+- 点头、摇头、环绕和组合舞蹈动作；
+- 舵机角度安全限制；
+- 逐步移动，降低机械冲击；
+- 表情与动作组合执行。
 
+### 交互控制
 
-# An MCP-based Chatbot | 一个基于 MCP 的聊天机器人
+- 短按 `BOOT`：开始或停止对话；
+- 长按 `BOOT`：切换对话模式与表情模式；
+- 音量按键：分级调节、最大音量和静音；
+- 语音控制音量：支持设置指定音量、增大、减小和静音；
+- 语义动作指令：支持点头、摇头、向左看、向右看、抬头、低头、回正和跳舞等表达。
 
-（中文 | [English](README_en.md) | [日本語](README_ja.md)）
+## 硬件组成
 
-## 视频
+### 推荐物料
 
-👉 [人类：给 AI 装摄像头 vs AI：当场发现主人三天没洗头【bilibili】](https://www.bilibili.com/video/BV1bpjgzKEhd/)
+| 模块 | 推荐型号 | 作用 |
+|---|---|---|
+| 主控 | ESP32-S3 N16R8 | 网络、音频、显示与动作调度 |
+| 麦克风 | INMP441 | I2S 数字语音采集 |
+| 音频功放 | MAX98357A | I2S 音频输出与扬声器驱动 |
+| 显示屏 | SSD1306 128 × 64 OLED | 文字状态与动态表情 |
+| 舵机 | SG90 × 2 | 水平与垂直头部运动 |
+| 扬声器 | 4Ω / 3W 或同类规格 | 语音播放 |
+| 按键 | BOOT、音量加、音量减 | 本地交互控制 |
 
-👉 [手工打造你的 AI 女友，新手入门教程【bilibili】](https://www.bilibili.com/video/BV1XnmFYLEJN/)
+PCB 设计参考：[赛博太白 DeskEmoji ESP32-S3 适配板](https://oshwhub.com/jorellee/xiao-zhi-ai-ji-qi-ren-deskemoji-da-ban)。
 
-## 介绍
+### 引脚连接
 
-这是一个由虾哥开源的 ESP32 项目，以 MIT 许可证发布，允许任何人免费使用，或用于商业用途。
+| 外设 | 信号 | ESP32-S3 引脚 |
+|---|---|---|
+| INMP441 | WS / SCK / SD | GPIO4 / GPIO5 / GPIO6 |
+| MAX98357A | DIN / BCLK / LRC | GPIO7 / GPIO15 / GPIO16 |
+| SSD1306 | SDA / SCL | GPIO41 / GPIO42 |
+| 水平舵机 | PWM | GPIO11 |
+| 垂直舵机 | PWM | GPIO12 |
+| 音量增加 | Button | GPIO40 |
+| 音量减少 | Button | GPIO39 |
+| 模式 / 对话 | BOOT | GPIO0 |
+| 状态灯 | LED | GPIO48 |
 
-我们希望通过这个项目，能够帮助大家了解 AI 硬件开发，将当下飞速发展的大语言模型应用到实际的硬件设备中。
+> [!WARNING]
+> SG90 舵机建议使用独立、稳定的 5V 电源供电，并与 ESP32-S3 共地。不要直接从开发板的 3.3V 引脚为舵机供电，否则可能出现重启、音频噪声或舵机抖动。
 
-如果你有任何想法或建议，请随时提出 Issues 或加入 QQ 群：1011329060
+更完整的硬件说明见 [`main/boards/esp32-s3n16r8-emoji/README.md`](main/boards/esp32-s3n16r8-emoji/README.md)。
 
-### 基于 MCP 控制万物
+## 快速开始
 
-小智 AI 聊天机器人作为一个语音交互入口，利用 Qwen / DeepSeek 等大模型的 AI 能力，通过 MCP 协议实现多端控制。
+### 1. 准备开发环境
 
-![通过MCP控制万物](docs/mcp-based-graph.jpg)
+- ESP-IDF 5.4 或更高版本；
+- Python 3；
+- Git；
+- 支持数据传输的 USB 线；
+- ESP32-S3 N16R8 及上述外设。
 
-### 已实现功能
+ESP-IDF 安装方式请参考[乐鑫官方文档](https://docs.espressif.com/projects/esp-idf/zh_CN/latest/esp32s3/get-started/index.html)。
 
-- Wi-Fi / ML307 Cat.1 4G
-- 离线语音唤醒 [ESP-SR](https://github.com/espressif/esp-sr)
-- 支持两种通信协议（[Websocket](docs/websocket.md) 或 MQTT+UDP）
-- 采用 OPUS 音频编解码
-- 基于流式 ASR + LLM + TTS 架构的语音交互
-- 声纹识别，识别当前说话人的身份 [3D Speaker](https://github.com/modelscope/3D-Speaker)
-- OLED / LCD 显示屏，支持表情显示
-- 电量显示与电源管理
-- 支持多语言（中文、英文、日文）
-- 支持 ESP32-C3、ESP32-S3、ESP32-P4 芯片平台
-- 通过设备端 MCP 实现设备控制（音量、灯光、电机、GPIO 等）
-- 通过云端 MCP 扩展大模型能力（智能家居控制、PC桌面操作、知识搜索、邮件收发等）
+### 2. 获取源码
 
-## 硬件
+```bash
+git clone https://github.com/KingYeon-Zoo/YunShu-Link-Firmware.git
+cd YunShu-Link-Firmware
+```
 
-### 面包板手工制作实践
+### 3. 选择目标芯片与开发板
 
-详见飞书文档教程：
+```bash
+idf.py set-target esp32s3
+idf.py menuconfig
+```
 
-👉 [《小智 AI 聊天机器人百科全书》](https://ccnphfhqs21z.feishu.cn/wiki/F5krwD16viZoF0kKkvDcrZNYnhb?from=from_copylink)
+在配置菜单中选择：
 
-面包板效果图如下：
+```text
+Xiaozhi Assistant
+└── Board Type
+    └── ESP32-S3N16R8-EMOJI 表情机器人开发板
+```
 
-![面包板效果图](docs/v1/wiring2.jpg)
+### 4. 编译并烧录
 
-### 支持 70 多个开源硬件（仅展示部分）
+```bash
+idf.py build
+idf.py -p /dev/ttyUSB0 flash monitor
+```
 
-- <a href="https://oshwhub.com/li-chuang-kai-fa-ban/li-chuang-shi-zhan-pai-esp32-s3-kai-fa-ban" target="_blank" title="立创·实战派 ESP32-S3 开发板">立创·实战派 ESP32-S3 开发板</a>
-- <a href="https://github.com/espressif/esp-box" target="_blank" title="乐鑫 ESP32-S3-BOX3">乐鑫 ESP32-S3-BOX3</a>
-- <a href="https://docs.m5stack.com/zh_CN/core/CoreS3" target="_blank" title="M5Stack CoreS3">M5Stack CoreS3</a>
-- <a href="https://docs.m5stack.com/en/atom/Atomic%20Echo%20Base" target="_blank" title="AtomS3R + Echo Base">M5Stack AtomS3R + Echo Base</a>
-- <a href="https://gf.bilibili.com/item/detail/1108782064" target="_blank" title="神奇按钮 2.4">神奇按钮 2.4</a>
-- <a href="https://www.waveshare.net/shop/ESP32-S3-Touch-AMOLED-1.8.htm" target="_blank" title="微雪电子 ESP32-S3-Touch-AMOLED-1.8">微雪电子 ESP32-S3-Touch-AMOLED-1.8</a>
-- <a href="https://github.com/Xinyuan-LilyGO/T-Circle-S3" target="_blank" title="LILYGO T-Circle-S3">LILYGO T-Circle-S3</a>
-- <a href="https://oshwhub.com/tenclass01/xmini_c3" target="_blank" title="虾哥 Mini C3">虾哥 Mini C3</a>
-- <a href="https://oshwhub.com/movecall/cuican-ai-pendant-lights-up-y" target="_blank" title="Movecall CuiCan ESP32S3">璀璨·AI 吊坠</a>
-- <a href="https://github.com/WMnologo/xingzhi-ai" target="_blank" title="无名科技Nologo-星智-1.54">无名科技 Nologo-星智-1.54TFT</a>
-- <a href="https://www.seeedstudio.com/SenseCAP-Watcher-W1-A-p-5979.html" target="_blank" title="SenseCAP Watcher">SenseCAP Watcher</a>
-- <a href="https://www.bilibili.com/video/BV1BHJtz6E2S/" target="_blank" title="ESP-HI 超低成本机器狗">ESP-HI 超低成本机器狗</a>
+请根据操作系统修改串口名称：
 
-<div style="display: flex; justify-content: space-between;">
-  <a href="docs/v1/lichuang-s3.jpg" target="_blank" title="立创·实战派 ESP32-S3 开发板">
-    <img src="docs/v1/lichuang-s3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/espbox3.jpg" target="_blank" title="乐鑫 ESP32-S3-BOX3">
-    <img src="docs/v1/espbox3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/m5cores3.jpg" target="_blank" title="M5Stack CoreS3">
-    <img src="docs/v1/m5cores3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/atoms3r.jpg" target="_blank" title="AtomS3R + Echo Base">
-    <img src="docs/v1/atoms3r.jpg" width="240" />
-  </a>
-  <a href="docs/v1/magiclick.jpg" target="_blank" title="神奇按钮 2.4">
-    <img src="docs/v1/magiclick.jpg" width="240" />
-  </a>
-  <a href="docs/v1/waveshare.jpg" target="_blank" title="微雪电子 ESP32-S3-Touch-AMOLED-1.8">
-    <img src="docs/v1/waveshare.jpg" width="240" />
-  </a>
-  <a href="docs/v1/lilygo-t-circle-s3.jpg" target="_blank" title="LILYGO T-Circle-S3">
-    <img src="docs/v1/lilygo-t-circle-s3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/xmini-c3.jpg" target="_blank" title="虾哥 Mini C3">
-    <img src="docs/v1/xmini-c3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/movecall-cuican-esp32s3.jpg" target="_blank" title="CuiCan">
-    <img src="docs/v1/movecall-cuican-esp32s3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/wmnologo_xingzhi_1.54.jpg" target="_blank" title="无名科技Nologo-星智-1.54">
-    <img src="docs/v1/wmnologo_xingzhi_1.54.jpg" width="240" />
-  </a>
-  <a href="docs/v1/sensecap_watcher.jpg" target="_blank" title="SenseCAP Watcher">
-    <img src="docs/v1/sensecap_watcher.jpg" width="240" />
-  </a>
-  <a href="docs/v1/esp-hi.jpg" target="_blank" title="ESP-HI 超低成本机器狗">
-    <img src="docs/v1/esp-hi.jpg" width="240" />
-  </a>
+- Linux 常见为 `/dev/ttyUSB0` 或 `/dev/ttyACM0`；
+- macOS 常见为 `/dev/cu.usbmodem*`；
+- Windows 常见为 `COM3`、`COM4` 等。
+
+### 5. 连接服务端
+
+本项目推荐配合 [YunShu-Link-Server](https://github.com/KingYeon-Zoo/YunShu-Link) 使用。服务端负责 ASR、LLM、TTS、记忆、工具调用与设备管理，固件负责实时音频和具身交互表现。
+
+设备首次启动后按屏幕提示完成配网和绑定，即可开始对话。
+
+## 代码结构
+
+本项目的核心产品代码位于：
+
+```text
+main/boards/esp32-s3n16r8-emoji/
+├── emoji_board.cc                   # 板级入口与设备状态编排
+├── board_config.h                   # 引脚、音频、显示和舵机参数
+├── emoji_controller.h/.cc           # OLED 表情与动画队列
+├── servo_controller.h/.cc           # 双轴舵机动作控制
+├── emotion_response_controller.h/.cc # 情感、文本与动作映射
+├── config.json                      # ESP32-S3 构建配置
+└── README.md                        # 开发板接线与使用说明
+```
+
+相关通用模块：
+
+```text
+main/audio/                           # 音频采集、编解码与处理
+main/protocols/                       # WebSocket / MQTT 通信
+main/display/                         # OLED / LCD 显示抽象
+main/mcp_server.*                     # 设备端 MCP 能力
+main/ota.*                            # OTA 更新
+docs/                                 # 协议与开发文档
+```
+
+## 开发说明
+
+### 新增表情
+
+1. 在 `AnimationType` 中增加动画类型；
+2. 在 `EmojiController` 中实现绘制或运动过程；
+3. 在动画任务的分发逻辑中注册新动画；
+4. 在 `EmotionResponseController` 中配置情感映射。
+
+### 新增头部动作
+
+1. 在 `ServoController` 中实现动作序列；
+2. 保持舵机角度在安全范围内；
+3. 在情感动作映射中关联语义或情绪；
+4. 在真实结构上验证供电、方向和机械限位。
+
+### 适配其他硬件
+
+项目延续可插拔的板级架构。新增硬件时，可在 `main/boards/` 下创建独立目录，并在 `main/Kconfig.projbuild` 与 `main/CMakeLists.txt` 中注册对应开发板。
+
+## 未来规划
+
+- [ ] 增加实机演示视频与免环境固件下载；
+- [ ] 完善外壳、结构件与装配文档；
+- [ ] 增加手势传感器等非接触交互方式；
+- [ ] 扩展视觉感知与主动观察能力；
+- [ ] 增加更多可配置表情和动作组合；
+- [ ] 完善自动化构建与硬件在环测试。
+
+## 项目来源与原创说明
+
+YunShu-Link-Firmware 的产品定义、ESP32-S3N16R8-Emoji 板级适配、双轴舵机控制、OLED 动态表情、情感动作映射、对话状态调度以及 YunShu-Link-Server 联调由本项目团队完成。
+
+项目的通用语音通信框架基于开源项目 [78/xiaozhi-esp32](https://github.com/78/xiaozhi-esp32) 持续开发。我们感谢原项目及 ESP-IDF、LVGL 等开源社区提供的基础能力。保留清晰的开源来源不仅是许可证要求，也是本项目坚持开放协作与可复现工程实践的一部分。
+
+## 参与贡献
+
+欢迎通过 Issue 或 Pull Request 参与改进：
+
+- 新的表情与动作设计；
+- 新开发板和外设适配；
+- 交互体验与稳定性优化；
+- 文档、教程与实机案例；
+- Bug 修复与性能改进。
+
+提交代码前，请尽量保持现有 C++ 风格，并说明测试所使用的硬件与 ESP-IDF 版本。
+
+## 开源许可
+
+本项目使用 [MIT License](LICENSE) 开源。
+
+---
+
+<div align="center">
+
+**YunShu-Link · 让智能从云端抵达真实世界**
+
+如果这个项目对你有帮助，欢迎点亮一个 ⭐。
+
 </div>
-
-## 软件
-
-### 固件烧录
-
-新手第一次操作建议先不要搭建开发环境，直接使用免开发环境烧录的固件。
-
-固件默认接入 [xiaozhi.me](https://xiaozhi.me) 官方服务器，个人用户注册账号可以免费使用 Qwen 实时模型。
-
-👉 [新手烧录固件教程](https://ccnphfhqs21z.feishu.cn/wiki/Zpz4wXBtdimBrLk25WdcXzxcnNS)
-
-### 开发环境
-
-- Cursor 或 VSCode
-- 安装 ESP-IDF 插件，选择 SDK 版本 5.4 或以上
-- Linux 比 Windows 更好，编译速度快，也免去驱动问题的困扰
-- 本项目使用 Google C++ 代码风格，提交代码时请确保符合规范
-
-### 开发者文档
-
-- [自定义开发板指南](main/boards/README.md) - 学习如何为小智 AI 创建自定义开发板
-- [MCP 协议物联网控制用法说明](docs/mcp-usage.md) - 了解如何通过 MCP 协议控制物联网设备
-- [MCP 协议交互流程](docs/mcp-protocol.md) - 设备端 MCP 协议的实现方式
-- [MQTT + UDP 混合通信协议文档](docs/mqtt-udp.md)
-- [一份详细的 WebSocket 通信协议文档](docs/websocket.md)
-
-## 大模型配置
-
-如果你已经拥有一个小智 AI 聊天机器人设备，并且已接入官方服务器，可以登录 [xiaozhi.me](https://xiaozhi.me) 控制台进行配置。
-
-👉 [后台操作视频教程（旧版界面）](https://www.bilibili.com/video/BV1jUCUY2EKM/)
-
-## 相关开源项目
-
-在个人电脑上部署服务器，可以参考以下第三方开源的项目：
-
-- [xinnan-tech/xiaozhi-esp32-server](https://github.com/xinnan-tech/xiaozhi-esp32-server) Python 服务器
-- [joey-zhou/xiaozhi-esp32-server-java](https://github.com/joey-zhou/xiaozhi-esp32-server-java) Java 服务器
-- [AnimeAIChat/xiaozhi-server-go](https://github.com/AnimeAIChat/xiaozhi-server-go) Golang 服务器
-
-使用小智通信协议的第三方客户端项目：
-
-- [huangjunsen0406/py-xiaozhi](https://github.com/huangjunsen0406/py-xiaozhi) Python 客户端
-- [TOM88812/xiaozhi-android-client](https://github.com/TOM88812/xiaozhi-android-client) Android 客户端
-- [100askTeam/xiaozhi-linux](http://github.com/100askTeam/xiaozhi-linux) 百问科技提供的 Linux 客户端
-- [78/xiaozhi-sf32](https://github.com/78/xiaozhi-sf32) 思澈科技的蓝牙芯片固件
-- [QuecPython/solution-xiaozhiAI](https://github.com/QuecPython/solution-xiaozhiAI) 移远提供的 QuecPython 固件
-
-## Star History
-
-<a href="https://star-history.com/#78/xiaozhi-esp32&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=78/xiaozhi-esp32&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=78/xiaozhi-esp32&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=78/xiaozhi-esp32&type=Date" />
- </picture>
-</a>
