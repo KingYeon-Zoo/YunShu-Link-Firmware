@@ -284,6 +284,10 @@ std::string MqttProtocol::GetHelloMessage() {
     cJSON_AddBoolToObject(features, "aec", true);
 #endif
     cJSON_AddBoolToObject(features, "mcp", true);
+#if CONFIG_BOARD_TYPE_ESP32_S3N16R8_EMOJI
+    // 显式声明本开发板需要服务端下发 type=llm 情绪消息。
+    cJSON_AddBoolToObject(features, "emoji", true);
+#endif
     cJSON_AddItemToObject(root, "features", features);
     cJSON* audio_params = cJSON_CreateObject();
     cJSON_AddStringToObject(audio_params, "format", "opus");
