@@ -181,6 +181,22 @@ void EmojiController::AnimationTask(void* pvParameters) {
                     case AnimationType::LOOK_RIGHT:
                         controller->ExecuteLookRightAnimation();
                         break;
+                    case AnimationType::LOOK_UP:
+                        if (controller->servo_controller_) {
+                            controller->servo_controller_->HeadUp();
+                        }
+                        break;
+                    case AnimationType::LOOK_DOWN:
+                        if (controller->servo_controller_) {
+                            controller->servo_controller_->HeadDown();
+                        }
+                        break;
+                    case AnimationType::LOOK_CENTER:
+                        controller->EyeCenter();
+                        if (controller->servo_controller_) {
+                            controller->servo_controller_->HeadCenter();
+                        }
+                        break;
                     case AnimationType::HEAD_NOD:
                         controller->ExecuteHeadNodAnimation();
                         break;
@@ -189,6 +205,14 @@ void EmojiController::AnimationTask(void* pvParameters) {
                         break;
                     case AnimationType::HEAD_ROLL:
                         controller->ExecuteHeadRollAnimation();
+                        break;
+                    case AnimationType::DANCE:
+                        controller->EyeHappy();
+                        if (controller->servo_controller_) {
+                            controller->servo_controller_->HeadNod(15);
+                            controller->servo_controller_->HeadRoll();
+                            controller->servo_controller_->HeadCenter(10);
+                        }
                         break;
                     case AnimationType::CONFUSED:
                         controller->ExecuteConfusedAnimation();

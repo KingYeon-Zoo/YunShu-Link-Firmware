@@ -415,20 +415,17 @@ void EmotionResponseController::InitializeEmotionActions() {
     
     // 抬头情感动作
     emotion_actions_["look_up"] = [this]() {
-        emoji_controller_->EyeUp();
-        servo_controller_->HeadUp();
+        emoji_controller_->PlayAnimation(AnimationType::LOOK_UP);
     };
     
     // 低头情感动作
     emotion_actions_["look_down"] = [this]() {
-        emoji_controller_->EyeDown();
-        servo_controller_->HeadDown();
+        emoji_controller_->PlayAnimation(AnimationType::LOOK_DOWN);
     };
     
     // 居中情感动作
     emotion_actions_["look_center"] = [this]() {
-        emoji_controller_->EyeCenter();
-        servo_controller_->HeadCenter();
+        emoji_controller_->PlayAnimation(AnimationType::LOOK_CENTER);
     };
     
     // 点头并开心情感动作
@@ -455,16 +452,7 @@ void EmotionResponseController::InitializeEmotionActions() {
     
     // 跳舞情感动作
     emotion_actions_["dance"] = [this]() {
-        // 显示开心表情
-        emoji_controller_->EyeHappy();
-        
-        // 执行跳舞动作：有频率的点头加转圈
-        // 先点头几次
-        servo_controller_->HeadNod(15);
-        servo_controller_->HeadRoll();
-        
-        // 恢复中心位置
-        servo_controller_->HeadCenter(10);
+        emoji_controller_->PlayAnimation(AnimationType::DANCE);
     };
     
     // 尴尬情感动作

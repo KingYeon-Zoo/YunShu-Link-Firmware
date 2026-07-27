@@ -448,8 +448,6 @@ choice DISPLAY_ESP32S3_AUDIO_BOARD
         屏幕类型选择
     config LCD_JD9853
         bool "JD9853, 分辨率320*172"
-    config LCD_ST7789
-        bool "ST7789, 分辨率240*320"
 endchoice
 
 config USE_WECHAT_MESSAGE_STYLE
