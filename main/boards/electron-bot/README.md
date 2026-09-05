@@ -7,7 +7,7 @@
 
 ## 简介
 
-electronBot是稚晖君开源的一个桌面级小机器工具人，外观设计的灵感来源是WALL-E里面的EVE~机器人具备USB通信显示画面功能，具备6个自由度（手部roll、pitch，颈部，腰部各一个），使用自己修改的特制舵机支持关节角度回传。
+electronBot 桌面机器人具备 USB 通信显示画面功能，具备6个自由度（手部roll、pitch，颈部，腰部各一个），使用自己修改的特制舵机支持关节角度回传。
 - <a href="www.electronBot.tech" target="_blank" title="electronBot官网">electronBot官网</a>
 
 ## 硬件

@@ -22,7 +22,7 @@
 
 ### 板级适配与通用通信分开
 
-通用音频、网络和协议能力沿用小智固件框架。云枢的硬件适配集中在 `esp32-s3n16r8-emoji` 板级目录，显示、舵机和情绪响应分别由控制器管理，便于定位硬件差异与交互问题。
+云枢的硬件适配集中在 `esp32-s3n16r8-emoji` 板级目录，显示、舵机和情绪响应分别由控制器管理，便于定位硬件差异与交互问题。
 
 ### 表情和动作接入对话状态
 
@@ -65,8 +65,8 @@ idf.py build
 
 本次使用 ESP-IDF 5.4 对 ESP32-S3 配置完成编译，尚未执行真机烧录与动作测试。
 
-## 项目来源与改造
+## 技术栈与许可
 
-固件基于 [78/xiaozhi-esp32](https://github.com/78/xiaozhi-esp32) 开发，云枢围绕 Emoji 开发板完成显示、双轴舵机、情绪响应和交互适配，并在扩展版本中加入具身设备工具。
+固件使用 C++、ESP-IDF、I2S、OLED 显示与 MCP 协议，运行于 ESP32-S3。
 
-硬件适配参考[赛博太白 DeskEmoji 适配板](https://oshwhub.com/jorellee/xiao-zhi-ai-ji-qi-ren-deskemoji-da-ban)。项目保留上游版权声明，许可证见 [LICENSE](LICENSE)。
+许可证见 [LICENSE](LICENSE)。

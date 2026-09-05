@@ -38,7 +38,7 @@ mkdir main/boards/my-custom-board
 - 按钮和LED引脚配置
 - 显示屏参数和引脚配置
 
-参考示例（来自lichuang-c3-dev）：
+开发板配置示例：
 
 ```c
 #ifndef _BOARD_CONFIG_H_

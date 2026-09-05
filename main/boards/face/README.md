@@ -1,14 +1,14 @@
 # esp32-eyes
-Emotive animated eyes on an OLED display, as inspired by Anki Cozmo etc.
+OLED 动态眼睛表情。
 
-Inspired by the expressive eye animations of the Anki "Cozmo" robot, this Arduino/ESP8266/ESP32 library displays a set of animated eyes on a small 128x64 OLED screen.
+使用 Arduino、ESP8266/ESP32，在 128×64 OLED 屏幕上绘制动态眼睛。
 
 <img src="https://github.com/playfultechnology/esp32-eyes/blob/main/doc/anki-cozmo-faces-3-1024x576.jpg" />
 
 
 Unlike some libraries which display a set of pre-rendered bitmap images for each frame of animation, this library draws each frame dynamically from a programmatic set of parameters.
 
-Heavily based on <a href="https://github.com/luisllamasbinaburo/ESP32_Faces/">this library</a>, although with significant adjustments:
+显示与动画功能：
 
  - OLED (using <a href="https://github.com/olikraus/u8g2">u8g2</a>) rather than TFT (based on <a href="https://github.com/Bodmer/TFT_eSPI">eSPI_TFT</a>)
  - Horizontal rather than vertical alignment
