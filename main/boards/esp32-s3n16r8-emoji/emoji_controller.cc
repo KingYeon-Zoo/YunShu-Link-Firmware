@@ -592,26 +592,19 @@ bool EmojiController::SafeExecuteAnimation(std::function<void()> animation_func)
     return true;
 }
 
-void EmojiController::PlayAnimation(AnimationType type, int param) {
-    ESP_LOGI(TAG, "播放动画，类型: %d, 参数: %d", (int)type, param);
-    
-    // 检查动画队列是否已创建
+bool EmojiController::PlayAnimation(AnimationType type, int param) {
     if (animation_queue_ == nullptr) {
         ESP_LOGE(TAG, "PlayAnimation: 动画队列未创建");
-        return;
+        return false;
     }
-    
-    // 创建动画消息
     AnimationMessage msg;
     msg.type = type;
     msg.param = param;
-    
-    // 发送动画消息到队列
     if (xQueueSend(animation_queue_, &msg, 0) != pdPASS) {
-        ESP_LOGW(TAG, "PlayAnimation: 发送动画消息失败");
-    } else {
-        ESP_LOGI(TAG, "已发送动画消息，类型: %d", static_cast<int>(type));
+        ESP_LOGW(TAG, "PlayAnimation: 动画队列已满");
+        return false;
     }
+    return true;
 }
 
 void EmojiController::StopAnimation() {

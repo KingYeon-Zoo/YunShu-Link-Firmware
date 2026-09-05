@@ -201,7 +201,7 @@ public:
      * @param type 动画类型
      * @param param 动画参数
      */
-    void PlayAnimation(AnimationType type, int param = 0);
+    bool PlayAnimation(AnimationType type, int param = 0);
     
     /**
      * @brief 启动眨眼定时器（兼容旧接口）

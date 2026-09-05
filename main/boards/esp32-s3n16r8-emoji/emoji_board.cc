@@ -312,9 +312,11 @@ private:
                         "look_up, look_down, center, spin, dance");
                 }
 
-                emoji_controller_->PlayAnimation(animation);
+                if (!emoji_controller_ || !emoji_controller_->PlayAnimation(animation)) {
+                    return std::string("动作投递失败：控制器未就绪或队列已满，请稍后重试");
+                }
                 ESP_LOGI(TAG, "LLM通过MCP触发头部动作: %s", action.c_str());
-                return std::string("动作已开始，将与语音回复并行执行");
+                return std::string("动作已入队，将由设备异步执行");
             });
 
         mcp_server.AddTool(
