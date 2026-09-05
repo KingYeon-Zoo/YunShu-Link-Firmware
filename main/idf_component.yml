@@ -76,6 +76,6 @@ dependencies:
 
   ## Required IDF version
   idf:
-    version: '>=5.0.0'
+    version: '>=5.4.0'
   espressif/mqtt: '*'
   espressif/cjson: '*'

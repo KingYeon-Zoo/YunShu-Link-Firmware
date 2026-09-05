@@ -101,7 +101,7 @@ private:
     EmotionResponseController* emotion_controller_ = nullptr;
     
     // 表情模式标志
-    bool is_emoji_mode_ = false;
+    bool is_emoji_mode_ = true;
     
     // 对话模式屏幕
     lv_obj_t* chat_screen_ = nullptr;
@@ -272,8 +272,121 @@ private:
     }
 
     void InitializeIot() {
-        // 新的MCP架构不再需要手动初始化Thing，由框架自动管理
-        ESP_LOGI(TAG, "新版MCP架构已自动管理设备功能");
+        auto& mcp_server = McpServer::GetInstance();
+
+        mcp_server.AddTool(
+            "self.head.perform_action",
+            "控制桌面机器人的双轴头部动作，动作会异步执行，可与语音回复同时进行。"
+            "当用户明确要求机器人做动作，或你的回复需要用身体语言表达肯定、否定、方向、庆祝时调用。"
+            "action 支持：nod(点头)、shake(摇头)、look_left(向左看)、look_right(向右看)、"
+            "look_up(抬头)、look_down(低头)、center(回正)、spin(转圈)、dance(跳舞)。"
+            "不要在每句话都调用，只在动作与语义相关时调用。",
+            PropertyList({
+                Property("action", kPropertyTypeString)
+            }),
+            [this](const PropertyList& properties) -> ReturnValue {
+                const auto action = properties["action"].value<std::string>();
+                AnimationType animation;
+
+                if (action == "nod") {
+                    animation = AnimationType::HEAD_NOD;
+                } else if (action == "shake") {
+                    animation = AnimationType::HEAD_SHAKE;
+                } else if (action == "look_left") {
+                    animation = AnimationType::LOOK_LEFT;
+                } else if (action == "look_right") {
+                    animation = AnimationType::LOOK_RIGHT;
+                } else if (action == "look_up") {
+                    animation = AnimationType::LOOK_UP;
+                } else if (action == "look_down") {
+                    animation = AnimationType::LOOK_DOWN;
+                } else if (action == "center") {
+                    animation = AnimationType::LOOK_CENTER;
+                } else if (action == "spin") {
+                    animation = AnimationType::HEAD_ROLL;
+                } else if (action == "dance") {
+                    animation = AnimationType::DANCE;
+                } else {
+                    return std::string(
+                        "不支持的动作。可用值：nod, shake, look_left, look_right, "
+                        "look_up, look_down, center, spin, dance");
+                }
+
+                if (!emoji_controller_ || !emoji_controller_->PlayAnimation(animation)) {
+                    return std::string("动作投递失败：控制器未就绪或队列已满，请稍后重试");
+                }
+                ESP_LOGI(TAG, "LLM通过MCP触发头部动作: %s", action.c_str());
+                return std::string("动作已入队，将由设备异步执行");
+            });
+
+        mcp_server.AddTool(
+            "self.face.set_emotion",
+            "设置桌面机器人的OLED大眼睛表情，动画会异步执行。"
+            "当回复具有明确情绪时调用。emotion 支持：neutral, happy, laughing, funny, sad, cry, "
+            "angry, surprised, confused, thinking, sleepy, loving, kissy, cool, confident, relaxed, "
+            "embarrassed, silly。",
+            PropertyList({
+                Property("emotion", kPropertyTypeString)
+            }),
+            [this](const PropertyList& properties) -> ReturnValue {
+                auto emotion = properties["emotion"].value<std::string>();
+                if (emotion == "angry") {
+                    emotion = "anger";
+                } else if (emotion == "surprised") {
+                    emotion = "surprise";
+                } else if (emotion == "sleepy") {
+                    emotion = "sleep";
+                } else if (emotion == "embarrassed") {
+                    emotion = "awkward";
+                }
+
+                static const std::vector<std::string> supported = {
+                    "neutral", "happy", "laughing", "funny", "sad", "cry", "anger",
+                    "surprise", "confused", "thinking", "sleep", "loving", "kissy",
+                    "cool", "confident", "relaxed", "awkward", "silly"
+                };
+                if (std::find(supported.begin(), supported.end(), emotion) == supported.end()) {
+                    return std::string("不支持的表情类型");
+                }
+
+                emotion_controller_->TriggerEmotion(emotion);
+                ESP_LOGI(TAG, "LLM通过MCP触发表情: %s", emotion.c_str());
+                return std::string("表情动画已开始");
+            });
+
+        mcp_server.AddTool(
+            "self.face.set_mode",
+            "切换OLED显示模式。mode=emoji 显示全屏大眼睛并保持语音对话能力；"
+            "mode=chat 显示文字对话界面。",
+            PropertyList({
+                Property("mode", kPropertyTypeString)
+            }),
+            [this](const PropertyList& properties) -> ReturnValue {
+                const auto mode = properties["mode"].value<std::string>();
+                if (mode == "emoji") {
+                    if (!is_emoji_mode_) {
+                        is_emoji_mode_ = true;
+                        SwitchScreen(true);
+                        emoji_controller_->StartBlinkTimer();
+                        emoji_controller_->EyeCenter();
+                    }
+                } else if (mode == "chat") {
+                    if (is_emoji_mode_) {
+                        is_emoji_mode_ = false;
+                        emoji_controller_->StopBlinkTimer();
+                        SwitchScreen(false);
+                        emoji_controller_->CleanupEmojiScreen();
+                        servo_controller_->HeadCenter();
+                    }
+                } else {
+                    return std::string("不支持的模式，可用值：emoji, chat");
+                }
+
+                ESP_LOGI(TAG, "LLM通过MCP切换显示模式: %s", mode.c_str());
+                return std::string("显示模式已切换，语音对话保持可用");
+            });
+
+        ESP_LOGI(TAG, "已注册LLM舵机、表情和显示模式MCP工具");
     }
     
     // 切换屏幕
@@ -321,6 +434,12 @@ public:
         // 创建并初始化情感响应控制器
         emotion_controller_ = new EmotionResponseController(emoji_controller_, servo_controller_, GetAudioCodec());
         emotion_controller_->Initialize();
+
+        // 默认进入全屏表情模式。屏幕模式不影响麦克风、唤醒词或WebSocket对话。
+        SwitchScreen(true);
+        emoji_controller_->StartBlinkTimer();
+        emoji_controller_->EyeCenter();
+        ESP_LOGI(TAG, "开机默认进入大Emoji模式，语音对话保持可用");
         
         // 手势识别功能已移除
         ESP_LOGI(TAG, "手势识别功能已移除");
@@ -410,7 +529,7 @@ void EmojiDisplay::SetChatMessage(const char* role, const char* content) {
     
     // 首先调用父类方法显示消息
     OledDisplay::SetChatMessage(role, content);
-    
+
     // 如果是AI回复，则处理内容
     if (role && strcmp(role, "assistant") == 0 && content && content[0] != '\0') {
         ESP_LOGI(TAG, "EmojiDisplay捕获AI回复: %s", content);

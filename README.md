@@ -32,7 +32,7 @@
 
 默认分支包含 MCP 协议处理和设备状态、音量等通用工具。
 
-项目的[具身工具扩展版本](https://github.com/KingYeon-Zoo/YunShu-Link-Firmware/tree/ca53cf5dea1f20cbb2b22214ea2bc0d4b9a068f6)进一步把头部动作、表情与显示模式注册为模型工具：`self.head.perform_action`、`self.face.set_emotion`、`self.face.set_mode`。对应实现见该版本的 [emoji_board.cc](https://github.com/KingYeon-Zoo/YunShu-Link-Firmware/blob/ca53cf5dea1f20cbb2b22214ea2bc0d4b9a068f6/main/boards/esp32-s3n16r8-emoji/emoji_board.cc)。
+默认分支已将头部动作、表情与显示模式注册为模型工具：`self.head.perform_action`、`self.face.set_emotion`、`self.face.set_mode`。实现见 [emoji_board.cc](main/boards/esp32-s3n16r8-emoji/emoji_board.cc)。头部动作入队成功才返回成功结果，队列未就绪或已满时明确返回失败。
 
 两套入口保留明确版本，编译前请按需要选择。
 
@@ -63,11 +63,7 @@ idf.py build
 
 在 `menuconfig` 中选择 `ESP32-S3N16R8-EMOJI` 开发板，并配置自己的服务端地址。烧录命令和串口选择见[详细步骤](docs/硬件与烧录.md)。
 
-需要具身 MCP 工具扩展时，先检出对应版本，再执行上述配置与编译步骤：
-
-```bash
-git checkout ca53cf5dea1f20cbb2b22214ea2bc0d4b9a068f6
-```
+本次使用 ESP-IDF 5.4 对 ESP32-S3 配置完成编译，尚未执行真机烧录与动作测试。
 
 ## 项目来源与改造
 

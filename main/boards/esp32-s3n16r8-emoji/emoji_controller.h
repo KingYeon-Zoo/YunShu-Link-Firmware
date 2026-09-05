@@ -29,9 +29,13 @@ enum class AnimationType {
     SLEEP,      // 睡眠
     LOOK_LEFT,  // 向左看
     LOOK_RIGHT, // 向右看
+    LOOK_UP,    // 向上看
+    LOOK_DOWN,  // 向下看
+    LOOK_CENTER, // 回到中心
     HEAD_NOD,   // 点头
     HEAD_SHAKE, // 摇头
     HEAD_ROLL,  // 头部转动
+    DANCE,      // 舞蹈组合动作
     CONFUSED,   // 困惑
     AWKWARD,    // 尴尬
     CRY,        // 哭泣
@@ -197,7 +201,7 @@ public:
      * @param type 动画类型
      * @param param 动画参数
      */
-    void PlayAnimation(AnimationType type, int param = 0);
+    bool PlayAnimation(AnimationType type, int param = 0);
     
     /**
      * @brief 启动眨眼定时器（兼容旧接口）
